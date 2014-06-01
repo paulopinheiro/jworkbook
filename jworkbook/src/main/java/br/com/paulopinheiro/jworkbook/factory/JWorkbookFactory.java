@@ -6,9 +6,8 @@ package br.com.paulopinheiro.jworkbook.factory;
 
 import java.io.File;
 import java.security.InvalidParameterException;
-import java.util.Locale;
-import java.util.ResourceBundle;
 import org.apache.commons.io.FilenameUtils;
+import resources.MessagesBundle;
 
 /**
  * Creates an JWorkbook object based on file extension
@@ -16,7 +15,6 @@ import org.apache.commons.io.FilenameUtils;
  * @author paulopinheiro
  */
 public class JWorkbookFactory {
-    private static final ResourceBundle exceptionMessages = ResourceBundle.getBundle("Exception_Messages", Locale.getDefault());
 
     /**
      * 
@@ -26,22 +24,22 @@ public class JWorkbookFactory {
      */
     public static JWorkbook createJWorkbook(File workbookFile) {
         if (workbookFile == null) {
-            throw new InvalidParameterException(exceptionMessages.getString("file.null"));
+            throw new InvalidParameterException(MessagesBundle.getExceptionMessage("file.null"));
         }
         if (workbookFile.isDirectory()) {
-            throw new InvalidParameterException("file.isDirectory");
+            throw new InvalidParameterException(MessagesBundle.getExceptionMessage("file.isDirectory",workbookFile.getName()));
         }
         if (!workbookFile.getParentFile().canWrite()) {
-            throw new InvalidParameterException("file.cantWrite");
+            throw new InvalidParameterException(MessagesBundle.getExceptionMessage("file.cantWrite",workbookFile.getParent()));
         }
         String extension = FilenameUtils.getExtension(workbookFile.getName());
-        if (!extension.equalsIgnoreCase("xls")) {
+        if (extension.equalsIgnoreCase("xls")) {
             return new JWorkbookXLS(workbookFile);
         } else {
-            if (!extension.equalsIgnoreCase("ods")) {
+            if (extension.equalsIgnoreCase("ods")) {
                 return new JWorkbookODS(workbookFile);
             } else {
-                throw new InvalidParameterException("file.notXLSnorODS");
+                throw new InvalidParameterException(MessagesBundle.getExceptionMessage("file.notSupported"));
             }
         }
     }

@@ -37,6 +37,25 @@ class JWorkbookXLS implements JWorkbook {
     private Sheet currentSheet;
     private Row currentRow;
 
+    //Montar uma estrutura de Workbook - Sheet - Row com modelos próprios
+    //e só passar isso pra arquivo no método write
+    //DESVANTAGEM: o cliente da API perde o controle do looping na hora de gravar
+    //VANTAGEM: maior controle sobre títulos, totais, número real de linhas escritas, etc.
+    //CONSIDERAR: fazer da interface JWorkbook uma classe abstrata, pois a parte de
+    //            montar o model será igual para os dois
+    //CONSIDERAR: é possível organizar a planilha lendo do próprio objeto Workbook, mas
+    //            a princípio é inseguro. Testes podem ajudar na tomada dessa decisão.
+    //            Se for possível manter controle de "linhas realmente escritas" bastaria
+    //            considerar a primeira como título e colocar a borda sob a última.
+    //            Não esquecer de que a linha de título "deveria" acompanhar o alinhamento
+    //            da coluna
+    //CONSIDERAR  Controle de colunas (no looping de cells nós controlaríamos esse alinhamento).
+    //            No método addSheet() nós obrigaríamos a dar um parâmetro String[] com as colunas de 
+    //            título e outro de short[] com constantes de "tipos de dados" (restringindo as opções)
+    //EM TODO CASO: fazer uma ramificação!
+    //CONSIDERAR: onde possível, trocar arrays por List<>, principalmente em parâmetros
+    
+
     protected JWorkbookXLS(File workbookFile) {
         try {
             setFos(new FileOutputStream(workbookFile));
@@ -48,9 +67,11 @@ class JWorkbookXLS implements JWorkbook {
 
     @Override
     public void addSheet(String sheetName) {
+        // A bottom border at the last row of the current sheet
         if ((getCurrentSheet()!=null)&&(getCurrentRow()!=null)) {
             getCurrentRow().setRowStyle(this.getLastRowCellStyle());
         }
+
         if (!(getWorkbook().getSheet(sheetName) == null)) {
             throw new InvalidParameterException(MessagesBundle.getExceptionMessage("sheet.alreadyExists"));
         }
@@ -98,6 +119,7 @@ class JWorkbookXLS implements JWorkbook {
     @Override
     public void addRow(Object[] cells, boolean tittleTotal) {
         setCurrentRow(getCurrentSheet().createRow(getNewRowIndex()));
+
         if (tittleTotal) getCurrentRow().setRowStyle(this.getTittleTotalCellStyle());
         else getCurrentRow().setRowStyle(this.getDetailCellStyle());
 
@@ -115,43 +137,46 @@ class JWorkbookXLS implements JWorkbook {
         }
     }
 
-    /* Add a cell and set it with the appropriate type */
+    /* Add a cell and set it with the appropriate type and alignment */
     private void addCell(Object o, int index) {
         Cell cell = getCurrentRow().createCell(index);
+        short alignment;
 
         if (o instanceof Date) {
             cell.setCellValue((Date) o);
-            CellUtil.setAlignment(cell, getWorkbook(), CellStyle.ALIGN_RIGHT);
+            alignment = CellStyle.ALIGN_RIGHT;
         } else {
             if (o instanceof Calendar) {
                 cell.setCellValue((Calendar) o);
-                CellUtil.setAlignment(cell, getWorkbook(), CellStyle.ALIGN_RIGHT);
+                alignment = CellStyle.ALIGN_RIGHT;
             } else {
                 if (o instanceof String) {
                     cell.setCellValue((String) o);
-                    CellUtil.setAlignment(cell, getWorkbook(), CellStyle.ALIGN_LEFT);
+                    alignment = CellStyle.ALIGN_LEFT;
                 } else {
                     if (o instanceof Boolean) {
                         cell.setCellValue((Boolean) o);
-                        CellUtil.setAlignment(cell, getWorkbook(), CellStyle.ALIGN_CENTER);
+                        alignment = CellStyle.ALIGN_CENTER;
                     } else {
                         if (o instanceof Double) {
                             cell.setCellValue((Double) o);
-                            CellUtil.setAlignment(cell, getWorkbook(), CellStyle.ALIGN_RIGHT);
+                            alignment = CellStyle.ALIGN_RIGHT;
                         } else {
                             String arg = o.toString();
+
                             if (NumberUtils.isNumber(arg)) {
                                 cell.setCellValue(Double.parseDouble(arg));
-                                CellUtil.setAlignment(cell, getWorkbook(), CellStyle.ALIGN_RIGHT);
+                                alignment = CellStyle.ALIGN_RIGHT;
                             } else {
                                 cell.setCellValue(arg);
-                                CellUtil.setAlignment(cell, getWorkbook(), CellStyle.ALIGN_LEFT);
+                                alignment = CellStyle.ALIGN_LEFT;
                             }
                         }
                     }
                 }
             }
         }
+        CellUtil.setAlignment(cell, getWorkbook(), alignment);
     }
 
     private CellStyle getTittleTotalCellStyle() {

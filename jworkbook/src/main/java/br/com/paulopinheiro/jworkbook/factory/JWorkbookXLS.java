@@ -15,6 +15,7 @@ import org.apache.poi.hssf.record.cf.BorderFormatting;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.CreationHelper;
 import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.Footer;
 import org.apache.poi.ss.usermodel.Header;
@@ -23,7 +24,6 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellUtil;
 import org.apache.poi.ss.util.WorkbookUtil;
-import resources.MessagesBundle;
 
 /**
  * JWorkbook for Microsoft Excel files
@@ -36,25 +36,7 @@ class JWorkbookXLS implements JWorkbook {
     private Workbook workbook;
     private Sheet currentSheet;
     private Row currentRow;
-
-    //Montar uma estrutura de Workbook - Sheet - Row com modelos próprios
-    //e só passar isso pra arquivo no método write
-    //DESVANTAGEM: o cliente da API perde o controle do looping na hora de gravar
-    //VANTAGEM: maior controle sobre títulos, totais, número real de linhas escritas, etc.
-    //CONSIDERAR: fazer da interface JWorkbook uma classe abstrata, pois a parte de
-    //            montar o model será igual para os dois
-    //CONSIDERAR: é possível organizar a planilha lendo do próprio objeto Workbook, mas
-    //            a princípio é inseguro. Testes podem ajudar na tomada dessa decisão.
-    //            Se for possível manter controle de "linhas realmente escritas" bastaria
-    //            considerar a primeira como título e colocar a borda sob a última.
-    //            Não esquecer de que a linha de título "deveria" acompanhar o alinhamento
-    //            da coluna
-    //CONSIDERAR  Controle de colunas (no looping de cells nós controlaríamos esse alinhamento).
-    //            No método addSheet() nós obrigaríamos a dar um parâmetro String[] com as colunas de 
-    //            título e outro de short[] com constantes de "tipos de dados" (restringindo as opções)
-    //EM TODO CASO: fazer uma ramificação!
-    //CONSIDERAR: onde possível, trocar arrays por List<>, principalmente em parâmetros
-    
+    private CellStyle plainCellStyle;
 
     protected JWorkbookXLS(File workbookFile) {
         try {
@@ -63,15 +45,12 @@ class JWorkbookXLS implements JWorkbook {
             throw new InvalidParameterException(MessagesBundle.getExceptionMessage("file.parentNotFound", workbookFile.getParent()));
         }
         setWorkbook(new HSSFWorkbook());
+        setPlainCellStyle(getWorkbook().getCellStyleAt((short)0));
     }
 
     @Override
     public void addSheet(String sheetName) {
-        // A bottom border at the last row of the current sheet
-        if ((getCurrentSheet()!=null)&&(getCurrentRow()!=null)) {
-            getCurrentRow().setRowStyle(this.getLastRowCellStyle());
-        }
-
+        finishCurrentSheet();
         if (!(getWorkbook().getSheet(sheetName) == null)) {
             throw new InvalidParameterException(MessagesBundle.getExceptionMessage("sheet.alreadyExists"));
         }
@@ -87,6 +66,32 @@ class JWorkbookXLS implements JWorkbook {
         }
         if (footer != null) {
             this.setSheetFooter(footer);
+        }
+    }
+
+    private void finishCurrentSheet() {
+        if ((getCurrentSheet()!=null)&&(getCurrentRow()!=null)) {
+            formatRows();
+            formatCols();
+            setCurrentRow(null);
+        }
+    }
+
+    private void formatCols() {
+        int maxCol =0;
+
+        for (Row row:getCurrentSheet()) {
+            if (row.getLastCellNum() > maxCol) maxCol = row.getLastCellNum();
+        }
+
+        for (int i=0;i<=maxCol;i++) {
+            getCurrentSheet().autoSizeColumn(i);
+        }
+    }
+
+    private void formatRows() {
+        for (Cell c:getCurrentRow()){
+            this.lastRowCellStyle(c.getCellStyle());
         }
     }
 
@@ -120,34 +125,33 @@ class JWorkbookXLS implements JWorkbook {
     public void addRow(Object[] cells, boolean tittleTotal) {
         setCurrentRow(getCurrentSheet().createRow(getNewRowIndex()));
 
-        if (tittleTotal) getCurrentRow().setRowStyle(this.getTittleTotalCellStyle());
-        else getCurrentRow().setRowStyle(this.getDetailCellStyle());
-
         if (cells != null) {
-            if (cells.length > getCurrentRow().getLastCellNum()) {
-                throw new InvalidParameterException(MessagesBundle.getExceptionMessage("row.tooMuchCells", cells.length));
-            }
             for (int i = 0; i < cells.length; i++) {
                 if (cells[i] == null) {
-                    addCell("", i);
+                    addCell("", i,tittleTotal);
                 } else {
-                    addCell(cells[i], i);
+                    addCell(cells[i], i,tittleTotal);
                 }
             }
         }
     }
 
     /* Add a cell and set it with the appropriate type and alignment */
-    private void addCell(Object o, int index) {
+    private void addCell(Object o, int index,boolean tittleTotal) {
         Cell cell = getCurrentRow().createCell(index);
         short alignment;
 
+        if (tittleTotal) this.tittleTotalCellStyle(cell);
+        else             this.detailCellStyle(cell);
+
         if (o instanceof Date) {
-            cell.setCellValue((Date) o);
+            cell.setCellValue((Date)o);
+            this.dateCellStyle(cell.getCellStyle());
             alignment = CellStyle.ALIGN_RIGHT;
         } else {
             if (o instanceof Calendar) {
-                cell.setCellValue((Calendar) o);
+                cell.setCellValue((Calendar)o);
+                this.calendarCellStyle(cell.getCellStyle());
                 alignment = CellStyle.ALIGN_RIGHT;
             } else {
                 if (o instanceof String) {
@@ -177,44 +181,57 @@ class JWorkbookXLS implements JWorkbook {
             }
         }
         CellUtil.setAlignment(cell, getWorkbook(), alignment);
+        
     }
 
-    private CellStyle getTittleTotalCellStyle() {
-        CellStyle cellStyle = getWorkbook().createCellStyle();
-        cellStyle.setBorderTop(BorderFormatting.BORDER_DOUBLE);
-        cellStyle.setBorderBottom(BorderFormatting.BORDER_DOUBLE);
+    private void dateCellStyle(CellStyle style) {
+        CreationHelper ch = getWorkbook().getCreationHelper();
+        style.setDataFormat(ch.createDataFormat().getFormat("dd/MM/yyyy"));
+
+    }
+
+    private void calendarCellStyle(CellStyle style) {
+        CreationHelper ch = getWorkbook().getCreationHelper();
+        style.setDataFormat(ch.createDataFormat().getFormat("dd/MM/yyyy HH:mm"));
+    }
+
+    private void tittleTotalCellStyle(Cell cell) {
+        cell.getCellStyle().cloneStyleFrom(getPlainCellStyle());
+        CellStyle style = cell.getCellStyle();
+        style.cloneStyleFrom(getPlainCellStyle());
+        style.setBorderTop(BorderFormatting.BORDER_DOUBLE);
+        style.setBorderBottom(BorderFormatting.BORDER_DOUBLE);
 
         Font font = getWorkbook().createFont();
         font.setBoldweight(Font.BOLDWEIGHT_BOLD);
         font.setFontName("Courier New");
-        cellStyle.setFont(font);
-        
-        return cellStyle;
+        style.setFont(font);
+        cell.setCellStyle(style);
     }
 
-    private CellStyle getDetailCellStyle() {
-        CellStyle cellStyle = getWorkbook().createCellStyle();
-        cellStyle.setBorderBottom(BorderFormatting.BORDER_NONE);
+    private void detailCellStyle(Cell cell) {
+        cell.getCellStyle().cloneStyleFrom(getPlainCellStyle());
+        CellStyle style = cell.getCellStyle();
+
+        style.setBorderBottom(BorderFormatting.BORDER_NONE);
 
         Font font = getWorkbook().createFont();
         font.setBoldweight(Font.BOLDWEIGHT_NORMAL);
         font.setFontName("Courier New");
-        cellStyle.setFont(font);
-
-        return cellStyle;
+        style.setFont(font);
+        cell.setCellStyle(style);
     }
 
-    private CellStyle getLastRowCellStyle() {
-        CellStyle cellStyle = getWorkbook().createCellStyle();
-        cellStyle.setBorderBottom(BorderFormatting.BORDER_DOUBLE);
-
-        return cellStyle;
+    private void lastRowCellStyle(CellStyle style) {
+        style.setBorderBottom(BorderFormatting.BORDER_DOUBLE);
     }
 
     /* Write to disk */
     @Override
     public void write() throws IOException {
+        finishCurrentSheet();
         getWorkbook().write(getFos());
+        getFos().close();
     }
 
     private FileOutputStream getFos() {
@@ -222,6 +239,7 @@ class JWorkbookXLS implements JWorkbook {
     }
 
     private void setFos(FileOutputStream fos) {
+        finishCurrentSheet();
         this.fos = fos;
     }
 
@@ -274,4 +292,17 @@ class JWorkbookXLS implements JWorkbook {
         this.currentRow = currentRow;
     }
 
+    /**
+     * @return the plainCellStyle
+     */
+    public CellStyle getPlainCellStyle() {
+        return plainCellStyle;
+    }
+
+    /**
+     * @param plainCellStyle the plainCellStyle to set
+     */
+    public void setPlainCellStyle(CellStyle plainCellStyle) {
+        this.plainCellStyle = plainCellStyle;
+    }
 }

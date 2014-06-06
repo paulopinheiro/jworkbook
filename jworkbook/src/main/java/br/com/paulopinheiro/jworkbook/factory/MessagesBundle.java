@@ -4,7 +4,7 @@
  * http://murygin.wordpress.com/2010/04/23/parameter-substitution-in-resource-bundles/
  */
 
-package resources;
+package br.com.paulopinheiro.jworkbook.factory;
 
 import java.text.MessageFormat;
 import java.util.Locale;

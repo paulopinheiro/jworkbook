@@ -7,7 +7,6 @@ package br.com.paulopinheiro.jworkbook.factory;
 import java.io.File;
 import java.security.InvalidParameterException;
 import org.apache.commons.io.FilenameUtils;
-import resources.MessagesBundle;
 
 /**
  * Creates an JWorkbook object based on file extension.

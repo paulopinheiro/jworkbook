@@ -8,8 +8,15 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.security.InvalidParameterException;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.math.NumberUtils;
 import org.apache.poi.hssf.record.cf.BorderFormatting;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
@@ -84,9 +91,43 @@ class JWorkbookXLS implements JWorkbook {
             if (row.getLastCellNum() > maxCol) maxCol = row.getLastCellNum();
         }
 
-        for (int i=0;i<=maxCol;i++) {
+        short[] favAlign = this.getFavouriteAlignments(maxCol);
+
+        for (int i=0;i<maxCol;i++) {
             getCurrentSheet().autoSizeColumn(i);
+            for (Row row:getCurrentSheet()) {
+                row.getCell(i).getCellStyle().setAlignment(favAlign[i]);
+            }
         }
+    }
+
+    private short[] getFavouriteAlignments(int numCols) {
+        short[] resposta = new short[numCols];
+        List<Short> colAlignments = new ArrayList<Short>();
+
+        for (int i=0;i<numCols;i++) {
+            for (Row row:getCurrentSheet()) {
+                colAlignments.add(row.getCell(i).getCellStyle().getAlignment());
+            }
+            resposta[i] = favouriteAlignment(colAlignments);
+        }
+       
+        return resposta;
+    }
+
+    private short favouriteAlignment(List<Short> colAlignments) {
+        Map cardMap=(Map<Short,Integer>) CollectionUtils.getCardinalityMap(colAlignments);
+
+        Comparator comp = new Comparator<Entry<Short,Integer>>(){
+                            @Override
+                            public int compare(Entry<Short, Integer> o1, Entry<Short, Integer> o2) {
+                                return o1.getValue() > o2.getValue()? 1:-1;
+                            }
+                        };
+
+        Entry<Short,Integer> entry = (Entry<Short,Integer>)Collections.max(cardMap.entrySet(),comp);
+        
+        return entry.getKey();
     }
 
     private void formatRows() {

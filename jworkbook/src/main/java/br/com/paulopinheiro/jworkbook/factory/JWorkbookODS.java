@@ -7,6 +7,8 @@ package br.com.paulopinheiro.jworkbook.factory;
 import java.io.File;
 import java.io.IOException;
 import org.odftoolkit.odfdom.doc.OdfSpreadsheetDocument;
+import org.odftoolkit.odfdom.doc.table.OdfTable;
+import org.odftoolkit.odfdom.dom.element.office.OfficeSpreadsheetElement;
 import org.odftoolkit.odfdom.pkg.OdfFileDom;
 
 /**
@@ -14,15 +16,21 @@ import org.odftoolkit.odfdom.pkg.OdfFileDom;
  * @author Paulo Pinheiro
  */
 class JWorkbookODS implements JWorkbook {
-    private OdfSpreadsheetDocument document;
-    private OdfFileDom dom;
+    private OdfSpreadsheetDocument outputDocument;
+    private OdfFileDom contentDom;
+    private OdfFileDom stylesDom;
+    private OfficeSpreadsheetElement workbookContentElement;
     private File workbookFile;
-    
+
+    private OdfTable currentSheet;
+
     protected JWorkbookODS(File workbookFile) {
         this.setWorkbookFile(workbookFile);
         try {
-            this.setDocument(OdfSpreadsheetDocument.newSpreadsheetDocument());
-            this.setDom(this.getDocument().getContentDom());
+            this.setOutputDocument(OdfSpreadsheetDocument.newSpreadsheetDocument());
+            this.setContentDom(this.getOutputDocument().getContentDom());
+            this.setStylesDom(this.getOutputDocument().getStylesDom());
+            this.setWorkbookContentElement(this.getOutputDocument().getContentRoot());
         } catch (Exception ex) {
             throw new RuntimeException(MessagesBundle.getExceptionMessage("ods.creationError",ex.getMessage()));
         }
@@ -51,38 +59,38 @@ class JWorkbookODS implements JWorkbook {
     @Override
     public void write() throws IOException {
         try {
-            this.getDocument().save(this.getWorkbookFile());
+            this.getOutputDocument().save(this.getWorkbookFile());
         } catch (Exception ex) {
             throw new IOException(ex);
         }
     }
 
     /**
-     * @return the document
+     * @return the outputDocument
      */
-    private OdfSpreadsheetDocument getDocument() {
-        return document;
+    private OdfSpreadsheetDocument getOutputDocument() {
+        return outputDocument;
     }
 
     /**
-     * @param document the document to set
+     * @param outputDocument the outputDocument to set
      */
-    private void setDocument(OdfSpreadsheetDocument document) {
-        this.document = document;
+    private void setOutputDocument(OdfSpreadsheetDocument outputDocument) {
+        this.outputDocument = outputDocument;
     }
 
     /**
-     * @return the dom
+     * @return the contentDom
      */
-    private OdfFileDom getDom() {
-        return dom;
+    private OdfFileDom getContentDom() {
+        return contentDom;
     }
 
     /**
-     * @param dom the dom to set
+     * @param contentDom the contentDom to set
      */
-    private void setDom(OdfFileDom dom) {
-        this.dom = dom;
+    private void setContentDom(OdfFileDom contentDom) {
+        this.contentDom = contentDom;
     }
 
     /**
@@ -97,5 +105,47 @@ class JWorkbookODS implements JWorkbook {
      */
     private void setWorkbookFile(File workbookFile) {
         this.workbookFile = workbookFile;
+    }
+
+    /**
+     * @return the stylesDom
+     */
+    private OdfFileDom getStylesDom() {
+        return stylesDom;
+    }
+
+    /**
+     * @param stylesDom the stylesDom to set
+     */
+    private void setStylesDom(OdfFileDom stylesDom) {
+        this.stylesDom = stylesDom;
+    }
+
+    /**
+     * @return the workbookContentElement
+     */
+    private OfficeSpreadsheetElement getWorkbookContentElement() {
+        return workbookContentElement;
+    }
+
+    /**
+     * @param workbookContentElement the workbookContentElement to set
+     */
+    private void setWorkbookContentElement(OfficeSpreadsheetElement workbookContentElement) {
+        this.workbookContentElement = workbookContentElement;
+    }
+
+    /**
+     * @return the currentSheet
+     */
+    private OdfTable getCurrentSheet() {
+        return currentSheet;
+    }
+
+    /**
+     * @param currentSheet the currentSheet to set
+     */
+    private void setCurrentSheet(OdfTable currentSheet) {
+        this.currentSheet = currentSheet;
     }
 }

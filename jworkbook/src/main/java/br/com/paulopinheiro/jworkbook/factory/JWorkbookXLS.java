@@ -1,4 +1,4 @@
-/*
+/**
  * JWorkbook for Microsoft Excel files
  */
 package br.com.paulopinheiro.jworkbook.factory;

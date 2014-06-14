@@ -6,6 +6,7 @@ package br.com.paulopinheiro.jworkbook.factory;
 
 import java.io.File;
 import java.io.IOException;
+import java.security.InvalidParameterException;
 import org.odftoolkit.odfdom.doc.OdfSpreadsheetDocument;
 import org.odftoolkit.odfdom.doc.table.OdfTable;
 import org.odftoolkit.odfdom.dom.element.office.OfficeSpreadsheetElement;
@@ -19,6 +20,7 @@ class JWorkbookODS implements JWorkbook {
     private OdfSpreadsheetDocument outputDocument;
     private OdfFileDom contentDom;
     private OdfFileDom stylesDom;
+    private OdfFileDom metaDom;
     private OfficeSpreadsheetElement workbookContentElement;
     private File workbookFile;
 
@@ -26,23 +28,39 @@ class JWorkbookODS implements JWorkbook {
 
     protected JWorkbookODS(File workbookFile) {
         this.setWorkbookFile(workbookFile);
+        this.initDocumentElements();
+    }
+
+    private void initDocumentElements() {
         try {
             this.setOutputDocument(OdfSpreadsheetDocument.newSpreadsheetDocument());
             this.setContentDom(this.getOutputDocument().getContentDom());
             this.setStylesDom(this.getOutputDocument().getStylesDom());
+            this.setMetaDom(this.getOutputDocument().getMetaDom());
             this.setWorkbookContentElement(this.getOutputDocument().getContentRoot());
         } catch (Exception ex) {
             throw new RuntimeException(MessagesBundle.getExceptionMessage("ods.creationError",ex.getMessage()));
-        }
+        }        
     }
 
     @Override
     public void addSheet(String sheetName) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        if (this.alreadyExists(sheetName)) throw new InvalidParameterException(MessagesBundle.getExceptionMessage("sheet.alreadyExists"));
+        this.finishCurrentSheet();
+        this.setCurrentSheet(OdfTable.newTable(this.getOutputDocument()));
+        this.getCurrentSheet().setTableName(sheetName);
     }
 
     @Override
     public void addSheet(String sheetName, String[] header, String[] footer) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    private void finishCurrentSheet() {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    private boolean alreadyExists(String sheetName) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
@@ -147,5 +165,19 @@ class JWorkbookODS implements JWorkbook {
      */
     private void setCurrentSheet(OdfTable currentSheet) {
         this.currentSheet = currentSheet;
+    }
+
+    /**
+     * @return the metaDom
+     */
+    private OdfFileDom getMetaDom() {
+        return metaDom;
+    }
+
+    /**
+     * @param metaDom the metaDom to set
+     */
+    private void setMetaDom(OdfFileDom metaDom) {
+        this.metaDom = metaDom;
     }
 }

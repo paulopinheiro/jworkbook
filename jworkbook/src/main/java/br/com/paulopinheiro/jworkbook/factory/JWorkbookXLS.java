@@ -57,10 +57,10 @@ class JWorkbookXLS implements JWorkbook {
 
     @Override
     public void addSheet(String sheetName) {
-        finishCurrentSheet();
         if (!(getWorkbook().getSheet(sheetName) == null)) {
             throw new InvalidParameterException(MessagesBundle.getExceptionMessage("sheet.alreadyExists"));
         }
+        finishCurrentSheet();
         setCurrentSheet(getWorkbook().createSheet(WorkbookUtil.createSafeSheetName(sheetName)));
         setCurrentRow(null);
     }

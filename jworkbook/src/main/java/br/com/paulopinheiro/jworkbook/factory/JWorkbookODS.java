@@ -39,13 +39,26 @@ class JWorkbookODS implements JWorkbook {
     private void initDocumentElements() {
         try {
             this.setOutputDocument(OdfSpreadsheetDocument.newSpreadsheetDocument());
+            this.setWorkbookContentElement(this.getOutputDocument().getContentRoot());
             this.setContentDom(this.getOutputDocument().getContentDom());
             this.setStylesDom(this.getOutputDocument().getStylesDom());
             this.setMetaDom(this.getOutputDocument().getMetaDom());
-            this.setWorkbookContentElement(this.getOutputDocument().getContentRoot());
+            this.cleanOutputDocument();
         } catch (Exception ex) {
             throw new RuntimeException(MessagesBundle.getExceptionMessage("ods.creationError",ex.getMessage()));
         }        
+    }
+
+    // By default ODFDOM creates a new workbook with one spreadsheet
+    // This method is to clean it out
+    // Credits to http://langintro.com/odfdom_tutorials/create_odt.html
+    private void cleanOutputDocument() {
+        Node childNode = this.getWorkbookContentElement().getFirstChild();
+
+        while (childNode != null) {
+            this.getWorkbookContentElement().removeChild(childNode);
+            childNode = this.getWorkbookContentElement().getFirstChild();
+        }
     }
 
     @Override
@@ -114,7 +127,7 @@ class JWorkbookODS implements JWorkbook {
 
     @Override
     public void addRow(Object[] cells) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        this.addRow(cells, false);
     }
 
     @Override

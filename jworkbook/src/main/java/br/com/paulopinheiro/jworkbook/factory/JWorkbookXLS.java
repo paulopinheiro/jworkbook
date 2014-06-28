@@ -44,6 +44,7 @@ class JWorkbookXLS implements JWorkbook {
     private Sheet currentSheet;
     private Row currentRow;
     private CellStyle plainCellStyle;
+    private List<Row> tittleTotalRows;
 
     protected JWorkbookXLS(File workbookFile) {
         try {
@@ -52,7 +53,7 @@ class JWorkbookXLS implements JWorkbook {
             throw new InvalidParameterException(MessagesBundle.getExceptionMessage("file.parentNotFound", workbookFile.getParent()));
         }
         setWorkbook(new HSSFWorkbook());
-        setPlainCellStyle(getWorkbook().getCellStyleAt((short)0));
+        setPlainCellStyle(getWorkbook().getCellStyleAt((short) 0));
     }
 
     @Override
@@ -77,7 +78,7 @@ class JWorkbookXLS implements JWorkbook {
     }
 
     private void finishCurrentSheet() {
-        if ((getCurrentSheet()!=null)&&(getCurrentRow()!=null)) {
+        if ((getCurrentSheet() != null) && (getCurrentRow() != null)) {
             formatRows();
             formatCols();
             setCurrentRow(null);
@@ -85,53 +86,98 @@ class JWorkbookXLS implements JWorkbook {
     }
 
     private void formatCols() {
-        int maxCol =0;
+        int maxCol = 0;
 
-        for (Row row:getCurrentSheet()) {
-            if (row.getLastCellNum() > maxCol) maxCol = row.getLastCellNum();
+        /*
+         Look for the last col used for any row (maxCol)
+         */
+        for (Row row : getCurrentSheet()) {
+            if (row.getLastCellNum() > maxCol) {
+                maxCol = row.getLastCellNum();
+            }
         }
 
+        /*
+         Starts an array of favourite alignments for each col
+         The favourite alignment is the most frequent one for that col
+         */
         short[] favAlign = this.getFavouriteAlignments(maxCol);
 
-        for (int i=0;i<maxCol;i++) {
+        for (int i = 0; i < maxCol; i++) {
             getCurrentSheet().autoSizeColumn(i);
-            for (Row row:getCurrentSheet()) {
-                row.getCell(i).getCellStyle().setAlignment(favAlign[i]);
+            for (Row row : getCurrentSheet()) {
+                if (row.getCell(i) != null) {
+                    row.getCell(i).getCellStyle().setAlignment(favAlign[i]);
+                }
             }
         }
     }
 
     private short[] getFavouriteAlignments(int numCols) {
-        short[] resposta = new short[numCols];
-        List<Short> colAlignments = new ArrayList<Short>();
+        short[] resposta = allCenterlAligned(numCols);
 
-        for (int i=0;i<numCols;i++) {
-            for (Row row:getCurrentSheet()) {
-                colAlignments.add(row.getCell(i).getCellStyle().getAlignment());
-            }
-            resposta[i] = favouriteAlignment(colAlignments);
+        //Only detailRows will be analyzed
+        //Tittle/total rows does not count
+        List<Row> detailRows = this.getDetailRows();
+
+        // No detail rows: all general aligned
+        if (detailRows.isEmpty()) {
+            return resposta;
         }
-       
+
+        for (int i = 0; i < numCols; i++) {
+            List<Short> cellAlignments = new ArrayList<Short>();
+
+            for (Row row : detailRows) {
+                if (getCellAlignment(row,i)!=null)
+                    cellAlignments.add(getCellAlignment(row, i));
+            }
+            if (!cellAlignments.isEmpty())
+                resposta[i] = favouriteAlignment(cellAlignments);
+        }
+
         return resposta;
     }
 
-    private short favouriteAlignment(List<Short> colAlignments) {
-        Map cardMap=(Map<Short,Integer>) CollectionUtils.getCardinalityMap(colAlignments);
+    private static short[] allCenterlAligned(int numCols) {
+        short[] resposta = new short[numCols];
+        for (int i = 0; i < numCols; i++) {
+            resposta[i] = CellStyle.ALIGN_CENTER;
+        }
+        return resposta;
+    }
 
-        Comparator comp = new Comparator<Entry<Short,Integer>>(){
-                            @Override
-                            public int compare(Entry<Short, Integer> o1, Entry<Short, Integer> o2) {
-                                return o1.getValue() > o2.getValue()? 1:-1;
-                            }
-                        };
+    private static Short getCellAlignment(Row row, int index) {
+        return row.getCell(index) != null ? row.getCell(index).getCellStyle().getAlignment() : null;
+    }
 
-        Entry<Short,Integer> entry = (Entry<Short,Integer>)Collections.max(cardMap.entrySet(),comp);
-        
+    private List<Row> getDetailRows() {
+        List<Row> detailRows = new ArrayList<Row>();
+        for (Row row : getCurrentSheet()) {
+            if (!this.getTittleTotalRows().contains(row)) {
+                detailRows.add(row);
+            }
+        }
+        return detailRows;
+    }
+
+    private static short favouriteAlignment(List<Short> colAlignments) {
+        Map cardMap = (Map<Short, Integer>) CollectionUtils.getCardinalityMap(colAlignments);
+
+        Comparator comp = new Comparator<Entry<Short, Integer>>() {
+            @Override
+            public int compare(Entry<Short, Integer> o1, Entry<Short, Integer> o2) {
+                return o1.getValue() > o2.getValue() ? 1 : -1;
+            }
+        };
+
+        Entry<Short, Integer> entry = (Entry<Short, Integer>) Collections.max(cardMap.entrySet(), comp);
+
         return entry.getKey();
     }
 
     private void formatRows() {
-        for (Cell c:getCurrentRow()){
+        for (Cell c : getCurrentRow()) {
             this.lastRowCellStyle(c.getCellStyle());
         }
     }
@@ -169,29 +215,35 @@ class JWorkbookXLS implements JWorkbook {
         if (cells != null) {
             for (int i = 0; i < cells.length; i++) {
                 if (cells[i] == null) {
-                    addCell("", i,tittleTotal);
+                    addCell("", i, tittleTotal);
                 } else {
-                    addCell(cells[i], i,tittleTotal);
+                    addCell(cells[i], i, tittleTotal);
                 }
             }
+        }
+        if (tittleTotal) {
+            this.addTittleTotalRows(this.getCurrentRow());
         }
     }
 
     /* Add a cell and set it with the appropriate type and alignment */
-    private void addCell(Object o, int index,boolean tittleTotal) {
+    private void addCell(Object o, int index, boolean tittleTotal) {
         Cell cell = getCurrentRow().createCell(index);
         short alignment;
 
-        if (tittleTotal) this.tittleTotalCellStyle(cell);
-        else             this.detailCellStyle(cell);
+        if (tittleTotal) {
+            this.tittleTotalCellStyle(cell);
+        } else {
+            this.detailCellStyle(cell);
+        }
 
         if (o instanceof Date) {
-            cell.setCellValue((Date)o);
+            cell.setCellValue((Date) o);
             this.dateCellStyle(cell.getCellStyle());
             alignment = CellStyle.ALIGN_RIGHT;
         } else {
             if (o instanceof Calendar) {
-                cell.setCellValue((Calendar)o);
+                cell.setCellValue((Calendar) o);
                 this.calendarCellStyle(cell.getCellStyle());
                 alignment = CellStyle.ALIGN_RIGHT;
             } else {
@@ -222,7 +274,7 @@ class JWorkbookXLS implements JWorkbook {
             }
         }
         CellUtil.setAlignment(cell, getWorkbook(), alignment);
-        
+
     }
 
     private void dateCellStyle(CellStyle style) {
@@ -345,5 +397,22 @@ class JWorkbookXLS implements JWorkbook {
      */
     public void setPlainCellStyle(CellStyle plainCellStyle) {
         this.plainCellStyle = plainCellStyle;
+    }
+
+    /**
+     * @return the tittleTotalRows
+     */
+    private List<Row> getTittleTotalRows() {
+        if (this.tittleTotalRows == null) {
+            this.tittleTotalRows = new ArrayList<Row>();
+        }
+        return tittleTotalRows;
+    }
+
+    /**
+     * @param tittleTotalRows the tittleTotalRows to set
+     */
+    private void addTittleTotalRows(Row tittleTotalRow) {
+        this.getTittleTotalRows().add(tittleTotalRow);
     }
 }

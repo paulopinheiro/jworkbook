@@ -87,7 +87,7 @@ class JWorkbookODS implements JWorkbook {
     }
 
     private List<Node> getSheetList() {
-        List<Node> sheetList = new ArrayList<Node>();
+        List<Node> sheetList = new ArrayList<>();
         Node spreadSheetNode = this.getSpreadsheetNode();
         if (spreadSheetNode!=null) {
             NodeList spreadSheetChildren = spreadSheetNode.getChildNodes();

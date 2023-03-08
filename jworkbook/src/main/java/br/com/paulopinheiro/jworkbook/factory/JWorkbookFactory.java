@@ -41,14 +41,10 @@ public class JWorkbookFactory {
         }
 
         String extension = FilenameUtils.getExtension(workbookFile.getName());
-        if (extension.equalsIgnoreCase("xls")) {
-            return new JWorkbookXLS(workbookFile);
-        } else {
-            if (extension.equalsIgnoreCase("ods")) {
-                return new JWorkbookODS(workbookFile);
-            } else {
-                throw new InvalidParameterException(MessagesBundle.getExceptionMessage("file.notSupported"));
-            }
+        switch(extension.toLowerCase()) {
+            case "xls": return new JWorkbookXLS(workbookFile);
+            case "ods": return new JWorkbookODS(workbookFile);
+            default   : throw new InvalidParameterException(MessagesBundle.getExceptionMessage("file.notSupported"));
         }
     }
 }
